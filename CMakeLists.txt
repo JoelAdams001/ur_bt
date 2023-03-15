@@ -19,7 +19,6 @@ find_package(ur_action_interfaces REQUIRED)
 
 include_directories(
   include
-  config
 )
 
 if(BUILD_TESTING)
@@ -41,6 +40,9 @@ ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools m
 install(TARGETS
   main
   DESTINATION lib/${PROJECT_NAME}
+)
+install(DIRECTORY config launch rviz
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()

@@ -4,14 +4,61 @@
 #include "behaviortree_cpp/bt_factory.h"
 #include "tree_nodes.hpp"
 
-#include <moveit/moveit_cpp/moveit_cpp.h>
-#include <moveit/moveit_cpp/planning_component.h>
+#include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit_msgs/msg/display_robot_state.hpp>
+#include <moveit_msgs/msg/display_trajectory.hpp>
+
+#include <moveit_msgs/msg/attached_collision_object.hpp>
+#include <moveit_msgs/msg/collision_object.hpp>
 #include <geometry_msgs/msg/point_stamped.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
-static const std::string PLANNING_GROUP = "ur_manipulator";
-static const std::string LOGNAME = "ur_behavior_tree";
-static const std::vector<std::string> CONTROLLERS(1, "ur_controllers");
+const std::string PLANNING_GROUP = "ur_manipulator";
+rclcpp::Node::SharedPtr node;
+//static const std::string LOGNAME = "ur_behavior_tree";
+//static const std::vector<std::string> CONTROLLERS(1, "ur_controllers");
+
+
+std::vector<moveit_msgs::msg::CollisionObject> add_collision_environment(std::string frame_id)
+{
+    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+    collision_objects.resize(1);
+    collision_objects[0].id = "mount_frame";
+    collision_objects[0].header.frame_id = frame_id;
+
+    /* Define the primitive and its dimensions. */
+    collision_objects[0].primitives.resize(2);
+    collision_objects[0].primitives[0].type = collision_objects[0].primitives[0].BOX;
+    collision_objects[0].primitives[0].dimensions.resize(3);
+    collision_objects[0].primitives[0].dimensions[0] = 0.3556;
+    collision_objects[0].primitives[0].dimensions[1] = 0.4318;
+    collision_objects[0].primitives[0].dimensions[2] = 1.5;
+
+    /* Define the pose of the table. */
+    collision_objects[0].primitive_poses.resize(2);
+    collision_objects[0].primitive_poses[0].position.x = 0; //*sin(45deg)
+    collision_objects[0].primitive_poses[0].position.y = -0.4459;
+    collision_objects[0].primitive_poses[0].position.z = -0.000;
+    collision_objects[0].primitive_poses[0].orientation.w = 0.5;
+//    collision_objects[0].operation = collision_objects[0].ADD;
+    
+    //Floor
+    collision_objects[0].primitives[1].type = collision_objects[0].primitives[1].BOX;
+    collision_objects[0].primitives[1].dimensions.resize(3);
+    collision_objects[0].primitives[1].dimensions[0] = 2;
+    collision_objects[0].primitives[1].dimensions[1] = 2;
+    collision_objects[0].primitives[1].dimensions[2] = 0.01;
+
+    //Floor pose
+    collision_objects[0].primitive_poses[1].position.x = 0; //*sin(45deg)
+    collision_objects[0].primitive_poses[1].position.y = 0;
+    collision_objects[0].primitive_poses[1].position.z = 0.75;
+    collision_objects[0].primitive_poses[1].orientation.w = 0.5;
+    collision_objects[0].operation = collision_objects[0].ADD;
+    
+    return collision_objects;
+}
 
 int main(int argc, char * argv[])
 {
@@ -20,49 +67,17 @@ int main(int argc, char * argv[])
     rclcpp::NodeOptions node_options;
     RCLCPP_INFO(LOGGER, "Initialize node");
     node_options.automatically_declare_parameters_from_overrides(true);
-    rclcpp::Node::SharedPtr node = rclcpp::Node::make_shared("ur_behavior_tree", "", node_options);
+    node = rclcpp::Node::make_shared("ur_behavior_tree", "", node_options);
 
     rclcpp::executors::SingleThreadedExecutor executor;
     executor.add_node(node);
     std::thread([&executor]() { executor.spin(); }).detach();
 
-    //Setup moveit objects
-    auto moveit_cpp_ptr = std::make_shared<moveit_cpp::MoveItCpp>(node);
-    moveit_cpp_ptr->getPlanningSceneMonitor()->providePlanningSceneService();
-    auto planning_components = std::make_shared<moveit_cpp::PlanningComponent>(PLANNING_GROUP, moveit_cpp_ptr);
-    auto robot_model_ptr = moveit_cpp_ptr->getRobotModel();
-    auto robot_start_state = planning_components->getStartState();
-    auto joint_model_group_ptr = robot_model_ptr->getJointModelGroup(PLANNING_GROUP);
+    moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
+    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 
-    //Rviz vizualization
-    moveit_visual_tools::MoveItVisualTools visual_tools(node, "base_link", "ur_behavior_tree",
-                                                        moveit_cpp_ptr->getPlanningSceneMonitor());
-    visual_tools.deleteAllMarkers();
-    visual_tools.loadRemoteControl();
-
-    Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
-    text_pose.translation().z() = 1.75;
-    visual_tools.publishText(text_pose, "ur_behavior_tree", rvt::WHITE, rvt::XLARGE);
-    visual_tools.trigger();
-
-    //Move robot
-    planning_components->setStartStateToCurrentState();
-    geometry_msgs::msg::PoseStamped target_pose1;
-    target_pose1.header.frame_id = "base_link";
-    target_pose1.pose.orientation.w = 1.0;
-    target_pose1.pose.position.x = 0.28;
-    target_pose1.pose.position.y = -0.2;
-    target_pose1.pose.position.z = 0.5;
-    planning_components->setGoal(target_pose1, "tool0");
-
-    const moveit_cpp::PlanningComponent::PlanSolution plan_solution1 = planning_components->plan();
-    if(plan_solution1)
-    {
-        visual_tools.publishAxisLabeled(robot_start_state->getGlobalLinkTransform("tool0"), "start_pose");
-        visual_tools.publishAxisLabeled(target_pose1.pose, "target_pose");
-        visual_tools.publishTrajectoryLine(plan_solution1.trajectory, joint_model_group_ptr);
-        visual_tools.trigger();
-    }
+    std::vector<moveit_msgs::msg::CollisionObject> collision_objects = add_collision_environment("base_link");
+    planning_scene_interface.applyCollisionObjects(collision_objects);
 
     //Setup and run behavior tree
     BT::BehaviorTreeFactory factory;

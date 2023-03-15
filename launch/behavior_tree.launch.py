@@ -165,17 +165,15 @@ def launch_setup(context, *args, **kwargs):
         "warehouse_host": warehouse_sqlite_path,
     }
 
-    # Start the actual move_group node/action server
     move_group_node = Node(
-        package="ur_bt",
-        executable="main",
+        package="moveit_ros_move_group",
+        executable="move_group",
         output="screen",
         parameters=[
             robot_description,
             robot_description_semantic,
             robot_description_kinematics,
             # robot_description_planning,
-            planning_params,
             ompl_planning_pipeline_config,
             trajectory_execution,
             moveit_controllers,
@@ -185,9 +183,20 @@ def launch_setup(context, *args, **kwargs):
         ],
     )
 
+    behavior_tree_node = Node(
+        package="ur_bt",
+        executable="main",
+        output="screen",
+        parameters=[
+            robot_description,
+            robot_description_semantic,
+            robot_description_kinematics,
+        ],
+    )
+
     # rviz with moveit configuration
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare(moveit_config_package), "rviz", "view_robot.rviz"]
+        [FindPackageShare("ur_bt"), "rviz", "view_robot.rviz"]
     )
     rviz_node = Node(
         package="rviz2",
@@ -221,7 +230,15 @@ def launch_setup(context, *args, **kwargs):
         output="screen",
     )
 
-    nodes_to_start = [move_group_node, rviz_node, servo_node]
+    camera_tf = Node(
+    name="camera_tf",
+    package="tf2_ros",
+    executable="static_transform_publisher",
+        output="screen",
+        arguments=["0.03","0.13","0.03","0","-1.5707","-1.5707","tool0","camera_link" ],
+    )
+
+    nodes_to_start = [move_group_node, behavior_tree_node, rviz_node, servo_node, camera_tf]
 
     return nodes_to_start
 
