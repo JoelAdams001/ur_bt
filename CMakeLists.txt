@@ -41,7 +41,7 @@ install(TARGETS
   main
   DESTINATION lib/${PROJECT_NAME}
 )
-install(DIRECTORY config launch rviz
+install(DIRECTORY config launch rviz behavior_trees
   DESTINATION share/${PROJECT_NAME}
 )
 

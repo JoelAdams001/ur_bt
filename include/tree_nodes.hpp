@@ -104,3 +104,67 @@ class GotoHomePosition : public BT::SyncActionNode
         return BT::NodeStatus::SUCCESS;
     }
 };
+
+BT::NodeStatus RequestHelp()
+{
+    std::cout << "Help Requested" << std::endl;
+    extern rclcpp::Node::SharedPtr node;
+    extern const std::string PLANNING_GROUP;
+    //Setup moveit objects
+    moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
+    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+
+    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    std::vector<double> joint_group_positions;
+    make_joint_array(joint_group_positions, 1.505, 0.845, 0.509, -4.521, -1.527, 0.058, false /*Passing rad*/);
+    move_group.setJointValueTarget(joint_group_positions);
+    move_group.plan(my_plan);
+    move_group.move();
+
+    move_group.setMaxVelocityScalingFactor(0.6);
+    move_group.setMaxAccelerationScalingFactor(0.3);
+
+    make_joint_array(joint_group_positions, 1.905, 0.846, 0.509, -4.522, -0.910, 0.058, false /*Passing rad*/);
+    move_group.setJointValueTarget(joint_group_positions);
+    move_group.plan(my_plan);
+    move_group.move();
+
+    make_joint_array(joint_group_positions, 1.133, 0.846, 0.509, -4.450, -2.076, 0.0485, false /*Passing rad*/);
+    move_group.setJointValueTarget(joint_group_positions);
+    move_group.plan(my_plan);
+    move_group.move();
+
+    make_joint_array(joint_group_positions, 1.905, 0.846, 0.509, -4.522, -0.910, 0.058, false /*Passing rad*/);
+    move_group.setJointValueTarget(joint_group_positions);
+    move_group.plan(my_plan);
+    move_group.move();
+
+    make_joint_array(joint_group_positions, 1.505, 0.845, 0.509, -4.521, -1.527, 0.058, false /*Passing rad*/);
+    move_group.setJointValueTarget(joint_group_positions);
+    move_group.plan(my_plan);
+    move_group.move();
+
+  
+    return BT::NodeStatus::SUCCESS;
+}
+
+BT::NodeStatus FindObjML()
+{
+    std::cout << "Finding Object using ML model" << std::endl;
+
+    return BT::NodeStatus::FAILURE;
+}
+
+BT::NodeStatus FindObjPC()
+{
+    std::cout << "Finding object using PointCloud data" << std::endl;
+
+    return BT::NodeStatus::FAILURE;
+}
+
+BT::NodeStatus GoToObj()
+{
+    std::cout << "Going to object" << std::endl;
+
+    return BT::NodeStatus::FAILURE;
+}

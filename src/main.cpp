@@ -16,9 +16,6 @@
 
 const std::string PLANNING_GROUP = "ur_manipulator";
 rclcpp::Node::SharedPtr node;
-//static const std::string LOGNAME = "ur_behavior_tree";
-//static const std::vector<std::string> CONTROLLERS(1, "ur_controllers");
-
 
 std::vector<moveit_msgs::msg::CollisionObject> add_collision_environment(std::string frame_id)
 {
@@ -41,7 +38,6 @@ std::vector<moveit_msgs::msg::CollisionObject> add_collision_environment(std::st
     collision_objects[0].primitive_poses[0].position.y = -0.4459;
     collision_objects[0].primitive_poses[0].position.z = -0.000;
     collision_objects[0].primitive_poses[0].orientation.w = 0.5;
-//    collision_objects[0].operation = collision_objects[0].ADD;
     
     //Floor
     collision_objects[0].primitives[1].type = collision_objects[0].primitives[1].BOX;
@@ -65,7 +61,7 @@ int main(int argc, char * argv[])
     //Make ROS2 node and spin thread
     rclcpp::init(argc, argv);
     rclcpp::NodeOptions node_options;
-    RCLCPP_INFO(LOGGER, "Initialize node");
+    RCLCPP_INFO(LOGGER, "Main node started");
     node_options.automatically_declare_parameters_from_overrides(true);
     node = rclcpp::Node::make_shared("ur_behavior_tree", "", node_options);
 
@@ -73,18 +69,22 @@ int main(int argc, char * argv[])
     executor.add_node(node);
     std::thread([&executor]() { executor.spin(); }).detach();
 
+    //Add environment to moveit planning scene
     moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects = add_collision_environment("base_link");
     planning_scene_interface.applyCollisionObjects(collision_objects);
 
     //Setup and run behavior tree
     BT::BehaviorTreeFactory factory;
     factory.registerNodeType<GotoHomePosition>("GotoHomePosition");
-
-    auto tree = factory.createTreeFromFile("../behavior_trees/ur_bt.xml");
+    factory.registerSimpleCondition("RequestHelp", std::bind(RequestHelp));
+    factory.registerSimpleCondition("FindObjML", std::bind(FindObjML));
+    factory.registerSimpleCondition("FindObjPC", std::bind(FindObjPC));
+    factory.registerSimpleCondition("GoToObj", std::bind(GoToObj));
+    auto tree = factory.createTreeFromFile("/home/manipulatorlab/Ros2_ws/src/ur_bt/behavior_trees/ur_bt.xml");
     tree.tickWhileRunning();
-
+    
+    rclcpp::shutdown();
     return 0;
 }
