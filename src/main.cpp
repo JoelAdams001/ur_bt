@@ -1,7 +1,7 @@
 #include <iostream>
-#include "rclcpp/rclcpp.hpp"
-
+#include "Ros.h"
 #include "behaviortree_cpp/bt_factory.h"
+#include "behaviortree_cpp/loggers/bt_zmq_publisher.h"
 #include "tree_nodes.hpp"
 
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -29,10 +29,7 @@ std::vector<moveit_msgs::msg::CollisionObject> add_collision_environment(std::st
     collision_objects[0].primitives[0].type = collision_objects[0].primitives[0].BOX;
     collision_objects[0].primitives[0].dimensions.resize(3);
     collision_objects[0].primitives[0].dimensions[0] = 0.3556;
-    collision_objects[0].primitives[0].dimensions[1] = 0.4318;
-    collision_objects[0].primitives[0].dimensions[2] = 1.5;
 
-    /* Define the pose of the table. */
     collision_objects[0].primitive_poses.resize(2);
     collision_objects[0].primitive_poses[0].position.x = 0; //*sin(45deg)
     collision_objects[0].primitive_poses[0].position.y = -0.4459;
@@ -58,19 +55,11 @@ std::vector<moveit_msgs::msg::CollisionObject> add_collision_environment(std::st
 
 int main(int argc, char * argv[])
 {
-    //Make ROS2 node and spin thread
-    rclcpp::init(argc, argv);
-    rclcpp::NodeOptions node_options;
-    RCLCPP_INFO(LOGGER, "Main node started");
-    node_options.automatically_declare_parameters_from_overrides(true);
-    node = rclcpp::Node::make_shared("ur_behavior_tree", "", node_options);
-
-    rclcpp::executors::SingleThreadedExecutor executor;
-    executor.add_node(node);
-    std::thread([&executor]() { executor.spin(); }).detach();
+    Ros ros(argc, argv,"ur_behavior_tree");
+    ros.spinOnBackground();
 
     //Add environment to moveit planning scene
-    moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
+    moveit::planning_interface::MoveGroupInterface move_group(ros.node(), PLANNING_GROUP);
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects = add_collision_environment("base_link");
     planning_scene_interface.applyCollisionObjects(collision_objects);
@@ -83,8 +72,8 @@ int main(int argc, char * argv[])
     factory.registerSimpleCondition("FindObjPC", std::bind(FindObjPC));
     factory.registerSimpleCondition("GoToObj", std::bind(GoToObj));
     auto tree = factory.createTreeFromFile("/home/manipulatorlab/Ros2_ws/src/ur_bt/behavior_trees/ur_bt.xml");
+    //BT::PublisherZMQ publish_zmw(tree);
     tree.tickWhileRunning();
-    
-    rclcpp::shutdown();
+
     return 0;
 }

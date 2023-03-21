@@ -12,6 +12,8 @@
 #include <geometry_msgs/msg/point_stamped.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
+#include "Ros.h"
+
 namespace rvt = rviz_visual_tools;
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("");
 
@@ -50,8 +52,10 @@ class GotoHomePosition : public BT::SyncActionNode
 
     BT::NodeStatus tick() override
     {
-        extern rclcpp::Node::SharedPtr node;
-        extern const std::string PLANNING_GROUP;
+           extern const std::string PLANNING_GROUP;
+
+        auto node = Ros::instance()->node();
+        
         //Setup moveit objects
         moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
         moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
@@ -144,7 +148,7 @@ BT::NodeStatus RequestHelp()
     move_group.plan(my_plan);
     move_group.move();
 
-  
+    system("read");
     return BT::NodeStatus::SUCCESS;
 }
 

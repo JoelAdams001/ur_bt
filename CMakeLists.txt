@@ -33,7 +33,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(main src/main.cpp)
+add_executable(main src/main.cpp src/Ros.cpp)
 target_link_libraries(main BT::behaviortree_cpp)
 ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools moveit_ros_planning_interface moveit_msgs moveit_core)
 
