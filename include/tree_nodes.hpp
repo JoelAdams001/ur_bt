@@ -12,9 +12,15 @@
 #include <geometry_msgs/msg/point_stamped.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
-#include "Ros.h"
+#include "message_filters/sync_policies/approximate_time.h"
+#include "ur_interfaces/msg/segment.hpp"
+#include "sensor_msgs/msg/image.hpp"
+
+#include "ros.h"
 
 namespace rvt = rviz_visual_tools;
+using namespace message_filters;
+using namespace message_filters::sync_policies;
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("");
 
 //Pass a vector to this function & fill with values ready to be passed to move_groups "setJointValueTarget"
@@ -159,12 +165,50 @@ BT::NodeStatus FindObjML()
     return BT::NodeStatus::FAILURE;
 }
 
-BT::NodeStatus FindObjPC()
+struct Header
 {
-    std::cout << "Finding object using PointCloud data" << std::endl;
+  rclcpp::Time stamp;
+};
 
-    return BT::NodeStatus::FAILURE;
-}
+
+struct Msg
+{
+  Header header;
+  int data;
+};
+typedef std::shared_ptr<Msg> MsgPtr;
+typedef std::shared_ptr<Msg const> MsgConstPtr;
+
+class FindObjPC : public BT::SyncActionNode
+{
+    public:
+    FindObjPC(const std::string& name) : BT::SyncActionNode(name, {})
+    {
+        RCLCPP_INFO(LOGGER, "Initialize node");
+        auto seg_sub = Ros::instance()->node()->create_subscription<ur_interfaces::msg::Segment>("/detect_server/segmentations", 10, FindObjPC::seg_callback);
+        auto img_sub = Ros::instance()->node()->create_subscription<sensor_msgs::msg::Image>("/camera/depth/image_rect_raw", 10, FindObjPC::img_callback);
+    }
+
+    void seg_callback(const ur_interfaces::msg::Segment seg)
+    {
+        seg_ = seg;
+    }
+
+    void img_callback(const sensor_msgs::msg::Image img)
+    {
+        img_ = img;
+    }
+
+    BT::NodeStatus tick() override
+    {
+        return BT::NodeStatus::SUCCESS;
+    }
+    
+    private:
+        ur_interfaces::msg::Segment seg_;
+        sensor_msgs::msg::Image img_;
+
+};
 
 BT::NodeStatus GoToObj()
 {

@@ -7,14 +7,12 @@
                     <FindObjML name="Find_Object_ML"/>
                     <FindObjPC name="Find_Object_PC"/>
                 </Fallback>
-                <Fallback>
                     <Repeat num_cycles="3">
                         <Fallback name="go_to_obj_fb">
                             <RetryUntilSuccessful num_attempts="2">
                                 <GoToObj name="Go_to_object"/>
                             </RetryUntilSuccessful>
                             <RequestHelp name="Request_help"/>
-                        </Fallback>
                     </Repeat>
                 </Fallback>
             </Sequence>

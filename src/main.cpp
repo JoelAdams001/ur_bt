@@ -1,8 +1,8 @@
 #include <iostream>
-#include "Ros.h"
+#include "../include/ros.h"
 #include "behaviortree_cpp/bt_factory.h"
 #include "behaviortree_cpp/loggers/bt_zmq_publisher.h"
-#include "tree_nodes.hpp"
+#include "../include/tree_nodes.hpp"
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -67,9 +67,9 @@ int main(int argc, char * argv[])
     //Setup and run behavior tree
     BT::BehaviorTreeFactory factory;
     factory.registerNodeType<GotoHomePosition>("GotoHomePosition");
+    factory.registerNodeType<FindObjPC>("FindObjPC");
     factory.registerSimpleCondition("RequestHelp", std::bind(RequestHelp));
     factory.registerSimpleCondition("FindObjML", std::bind(FindObjML));
-    factory.registerSimpleCondition("FindObjPC", std::bind(FindObjPC));
     factory.registerSimpleCondition("GoToObj", std::bind(GoToObj));
     auto tree = factory.createTreeFromFile("/home/manipulatorlab/Ros2_ws/src/ur_bt/behavior_trees/ur_bt.xml");
     //BT::PublisherZMQ publish_zmw(tree);

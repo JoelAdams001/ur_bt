@@ -15,7 +15,8 @@ find_package(moveit_visual_tools REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
-find_package(ur_action_interfaces REQUIRED)
+find_package(ur_interfaces REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 include_directories(
   include
@@ -33,9 +34,9 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_executable(main src/main.cpp src/Ros.cpp)
+add_executable(main src/main.cpp src/ros.cpp)
 target_link_libraries(main BT::behaviortree_cpp)
-ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools moveit_ros_planning_interface moveit_msgs moveit_core)
+ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools moveit_ros_planning_interface moveit_msgs moveit_core ur_interfaces)
 
 install(TARGETS
   main
