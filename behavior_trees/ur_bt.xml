@@ -2,19 +2,16 @@
      <BehaviorTree ID="MainTree">
         <Fallback name="main_fallback">
             <Sequence name="root_sequence">
-                <GotoHomePosition   name="go_to_home_position"/>
-                <Fallback name="find_object_fb">
-                    <FindObjML name="Find_Object_ML"/>
-                    <FindObjPC name="Find_Object_PC"/>
-                </Fallback>
+                <GotoHomePosition name="go_to_home_position"/>
+                <FindObj name="Find_Object" topic_name="detect_server/combo"/>
                     <Repeat num_cycles="3">
                         <Fallback name="go_to_obj_fb">
                             <RetryUntilSuccessful num_attempts="2">
                                 <GoToObj name="Go_to_object"/>
                             </RetryUntilSuccessful>
                             <RequestHelp name="Request_help"/>
+                        </Fallback>
                     </Repeat>
-                </Fallback>
             </Sequence>
             <RequestHelp name="Request_help"/>
         </Fallback>

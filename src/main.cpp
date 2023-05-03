@@ -12,45 +12,66 @@
 #include <moveit_msgs/msg/attached_collision_object.hpp>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <geometry_msgs/msg/point_stamped.h>
+#include <geometry_msgs/msg/pose.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
 const std::string PLANNING_GROUP = "ur_manipulator";
 rclcpp::Node::SharedPtr node;
 
-std::vector<moveit_msgs::msg::CollisionObject> add_collision_environment(std::string frame_id)
+moveit_msgs::msg::CollisionObject add_collision_environment(std::string frame_id)
 {
-    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-    collision_objects.resize(1);
-    collision_objects[0].id = "mount_frame";
-    collision_objects[0].header.frame_id = frame_id;
+    moveit_msgs::msg::CollisionObject collision_object;
+    collision_object.id = "environment";
+    collision_object.header.frame_id = frame_id;
 
-    /* Define the primitive and its dimensions. */
-    collision_objects[0].primitives.resize(2);
-    collision_objects[0].primitives[0].type = collision_objects[0].primitives[0].BOX;
-    collision_objects[0].primitives[0].dimensions.resize(3);
-    collision_objects[0].primitives[0].dimensions[0] = 0.3556;
+    //Mount
+    shape_msgs::msg::SolidPrimitive primitive;
+    primitive.type = primitive.BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[primitive.BOX_Z] = 1.20;
+    primitive.dimensions[primitive.BOX_X] = 0.15;
+    primitive.dimensions[primitive.BOX_Y] = 0.15;
 
-    collision_objects[0].primitive_poses.resize(2);
-    collision_objects[0].primitive_poses[0].position.x = 0; //*sin(45deg)
-    collision_objects[0].primitive_poses[0].position.y = -0.4459;
-    collision_objects[0].primitive_poses[0].position.z = -0.000;
-    collision_objects[0].primitive_poses[0].orientation.w = 0.5;
+    geometry_msgs::msg::Pose primitive_pose;
+    primitive_pose.orientation.w = 0.5;
+    primitive_pose.position.x = 0; //*sin(45deg)
+    primitive_pose.position.y = -0.4459;
+    primitive_pose.position.z = 0.17;
+
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(primitive_pose);
     
     //Floor
-    collision_objects[0].primitives[1].type = collision_objects[0].primitives[1].BOX;
-    collision_objects[0].primitives[1].dimensions.resize(3);
-    collision_objects[0].primitives[1].dimensions[0] = 2;
-    collision_objects[0].primitives[1].dimensions[1] = 2;
-    collision_objects[0].primitives[1].dimensions[2] = 0.01;
+    primitive.type = primitive.BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[primitive.BOX_X] = 2;
+    primitive.dimensions[primitive.BOX_Y] = 2;
+    primitive.dimensions[primitive.BOX_Z] = 0.01;
 
-    //Floor pose
-    collision_objects[0].primitive_poses[1].position.x = 0; //*sin(45deg)
-    collision_objects[0].primitive_poses[1].position.y = 0;
-    collision_objects[0].primitive_poses[1].position.z = 0.75;
-    collision_objects[0].primitive_poses[1].orientation.w = 0.5;
-    collision_objects[0].operation = collision_objects[0].ADD;
-    
-    return collision_objects;
+    primitive_pose.orientation.w = 0.5;
+    primitive_pose.position.x = 0; //*sin(45deg)
+    primitive_pose.position.y = 0;
+    primitive_pose.position.z = 0.75;
+
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(primitive_pose);
+
+    //Cantilever
+    primitive.type = primitive.BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[primitive.BOX_X] = 0.15;
+    primitive.dimensions[primitive.BOX_Y] = 0.6;
+    primitive.dimensions[primitive.BOX_Z] = 0.11;
+
+    primitive_pose.orientation.w = 0.5;
+    primitive_pose.position.x = 0;
+    primitive_pose.position.y = -0.213; //-0.223
+    primitive_pose.position.z = -0.06; //-0.045
+
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(primitive_pose);
+
+    return collision_object;
 }
 
 int main(int argc, char * argv[])
@@ -61,15 +82,14 @@ int main(int argc, char * argv[])
     //Add environment to moveit planning scene
     moveit::planning_interface::MoveGroupInterface move_group(ros.node(), PLANNING_GROUP);
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-    std::vector<moveit_msgs::msg::CollisionObject> collision_objects = add_collision_environment("base_link");
-    planning_scene_interface.applyCollisionObjects(collision_objects);
+    auto collision_object = add_collision_environment("base_link");
+    planning_scene_interface.applyCollisionObject(collision_object);
 
     //Setup and run behavior tree
     BT::BehaviorTreeFactory factory;
     factory.registerNodeType<GotoHomePosition>("GotoHomePosition");
-    factory.registerNodeType<FindObjPC>("FindObjPC");
+    factory.registerNodeType<FindObj>("FindObj");
     factory.registerSimpleCondition("RequestHelp", std::bind(RequestHelp));
-    factory.registerSimpleCondition("FindObjML", std::bind(FindObjML));
     factory.registerSimpleCondition("GoToObj", std::bind(GoToObj));
     auto tree = factory.createTreeFromFile("/home/manipulatorlab/Ros2_ws/src/ur_bt/behavior_trees/ur_bt.xml");
     //BT::PublisherZMQ publish_zmw(tree);

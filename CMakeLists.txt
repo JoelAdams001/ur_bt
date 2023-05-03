@@ -17,9 +17,12 @@ find_package(moveit_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(ur_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
 
 include_directories(
   include
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 if(BUILD_TESTING)
@@ -36,7 +39,7 @@ endif()
 
 add_executable(main src/main.cpp src/ros.cpp)
 target_link_libraries(main BT::behaviortree_cpp)
-ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools moveit_ros_planning_interface moveit_msgs moveit_core ur_interfaces)
+ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools moveit_ros_planning_interface moveit_msgs moveit_core ur_interfaces cv_bridge)
 
 install(TARGETS
   main
