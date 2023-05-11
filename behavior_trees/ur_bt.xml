@@ -3,7 +3,7 @@
         <Fallback name="main_fallback">
             <Sequence name="root_sequence">
                 <GotoHomePosition name="go_to_home_position"/>
-                <FindObj name="Find_Object" topic_name="detect_server/combo"/>
+                <FindObj name="Find_Object"/>
                     <Repeat num_cycles="3">
                         <Fallback name="go_to_obj_fb">
                             <RetryUntilSuccessful num_attempts="2">

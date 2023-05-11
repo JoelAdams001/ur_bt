@@ -19,11 +19,18 @@ find_package(ur_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(PCL 1.2 REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(image_geometry REQUIRED)
 
 include_directories(
   include
   ${OpenCV_INCLUDE_DIRS}
 )
+
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -39,7 +46,7 @@ endif()
 
 add_executable(main src/main.cpp src/ros.cpp)
 target_link_libraries(main BT::behaviortree_cpp)
-ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools moveit_ros_planning_interface moveit_msgs moveit_core ur_interfaces cv_bridge)
+ament_target_dependencies(main rclcpp geometry_msgs moveit moveit_visual_tools moveit_ros_planning_interface moveit_msgs moveit_core ur_interfaces cv_bridge pcl_conversions image_geometry)
 
 install(TARGETS
   main

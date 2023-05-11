@@ -1,25 +1,31 @@
+//Structural libraries
 #include <iostream>
 #include <behaviortree_cpp/action_node.h>
 #include "behaviortree_cpp/bt_factory.h"
+#include "ros.h"
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/msg/display_robot_state.hpp>
 #include <moveit_msgs/msg/display_trajectory.hpp>
-
 #include <moveit_msgs/msg/attached_collision_object.hpp>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <geometry_msgs/msg/point_stamped.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
+//ROS Messages
 #include "ur_interfaces/msg/segment.hpp"
 #include "ur_interfaces/msg/segimgcombo.hpp"
 #include "sensor_msgs/msg/image.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
+//Additional Libraries
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/highgui.hpp>
-
-#include "ros.h"
+#include "pcl_conversions/pcl_conversions.h"
+#include <pcl/point_types.h>
+#include <pcl/filters/voxel_grid.h>
+#include <image_geometry/pinhole_camera_model.h>
 
 using std::placeholders::_1;
 namespace rvt = rviz_visual_tools;
@@ -161,6 +167,7 @@ BT::NodeStatus RequestHelp()
 
 ur_interfaces::msg::Segment _seg;
 sensor_msgs::msg::Image _img;
+sensor_msgs::msg::CameraInfo _info;
 
 void FindObjCallback(const ur_interfaces::msg::Segimgcombo::SharedPtr msg)
 {
@@ -168,35 +175,136 @@ void FindObjCallback(const ur_interfaces::msg::Segimgcombo::SharedPtr msg)
     _img = msg->img;
 }
 
-class FindObj : public BT::SyncActionNode
+void CamInfoCallback(const sensor_msgs::msg::CameraInfo msg)
+{
+    _info = msg;
+}
+
+cv::Point3d scalarMultiply(const cv::Point3d& pt3d, int scalar)
+{
+    return cv::Point3d(pt3d.x*scalar, pt3d.y*scalar, pt3d.z*scalar);
+}
+
+class FindObj : public BT::StatefulActionNode
 {
     public:
-    FindObj(const std::string& name, const BT::NodeConfig& config) : BT::SyncActionNode(name, config)
+    FindObj(const std::string& name) : BT::StatefulActionNode(name, {})
+    {}
+
+    BT::NodeStatus onStart()
     {
         RCLCPP_INFO(LOGGER, "Initialize node");
-        combo_sub_ = Ros::instance()->node()->create_subscription<ur_interfaces::msg::Segimgcombo>("detect_server/combo", 1000, &FindObjCallback);
-        img_pub_ = Ros::instance()->node()->create_publisher<sensor_msgs::msg::Image>("segmentation_mask", 10);
+        combo_sub_ = Ros::instance()->node()->create_subscription<ur_interfaces::msg::Segimgcombo>("/detect_server/combo", 1, &FindObjCallback);
+        cam_info_sub_ = Ros::instance()->node()->create_subscription<sensor_msgs::msg::CameraInfo>("/camera/depth/camera_info", 1, &CamInfoCallback);
+        img_pub_ = Ros::instance()->node()->create_publisher<sensor_msgs::msg::Image>("/segmentation_mask", 10);
+        pc_pub_ = Ros::instance()->node()->create_publisher<sensor_msgs::msg::PointCloud2>("/segment_pointcloud", 10);
+        
+        return BT::NodeStatus::RUNNING;
     }
 
-    virtual BT::NodeStatus tick() override 
+    BT::NodeStatus onRunning() override 
     {
-        RCLCPP_INFO(LOGGER, "In callback!");
-        //Create blank image with only segmentation points having pixel values
-        cv_ptr_ = cv_bridge::toCvCopy(_img, "");
-        cv::Mat mask_cv = cv::Mat::zeros(cv::Size(cv_ptr_->image.cols,cv_ptr_->image.rows), CV_8UC1);
-        for (auto [i, j] : _seg.pts){
-            mask_cv.at<uchar>(i, j)= 255;
-        }
-        auto mask_img = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", mask_cv).toImageMsg();
-        img_pub_->publish(*mask_img);
+        //RCLCPP_INFO(LOGGER, "In Findobj tick!");
+        try
+        {
+            //Create blank image with only segmentation points having pixel values
+            cv_ptr_ = cv_bridge::toCvCopy(_img, _img.encoding);
+            cv::Mat mask_cv = cv::Mat::zeros(cv::Size(cv_ptr_->image.cols,cv_ptr_->image.rows), CV_8UC1);
+            for (auto [i, j] : _seg.pts)
+            {
+                mask_cv.at<uchar>(j, i) = 255;
+            }
+            //std::cout << _seg.pts.size() << std::endl;
+            auto mask_img = cv_bridge::CvImage(std_msgs::msg::Header(), "mono8", mask_cv).toImageMsg();
+            //img_pub_->publish(*mask_img);
 
-        return BT::NodeStatus::SUCCESS;
+            //Point in polygon algorithm
+            image_geometry::PinholeCameraModel cam_model;
+            try
+            {
+                cam_model.fromCameraInfo(_info);
+            }
+            catch(const std::exception& e)
+            {
+                RCLCPP_ERROR(rclcpp::get_logger("pinhole_model"), "camera_info : %s", e.what());
+            }
+            
+
+            cv::Mat test_img = cv::Mat::zeros(cv::Size(cv_ptr_->image.cols,cv_ptr_->image.rows), CV_8UC1);
+            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cam_xyz (new pcl::PointCloud<pcl::PointXYZ>());
+            cloud_cam_xyz->height = 1;
+            pcl::PCLPointCloud2::Ptr cloud_cam_pcl2 (new pcl::PCLPointCloud2 ());
+            cv::Point3d pt3d_cv;
+            cv::Point2d pt2d;
+            pcl::PointXYZ pt3d_pcl;
+            sensor_msgs::msg::PointCloud2 cloud_ros;
+            bool ray = false;
+            bool c_current = false;
+            bool c_prev = false;
+            int val;
+            for (int row = 0; row < mask_cv.rows; ++row){
+                ray = false;
+                for (int col = 0; col < mask_cv.cols; ++col){
+                    if(mask_cv.at<uchar>(row, col) == 255)
+                    {
+                        c_current = true; 
+                    }
+                    else{
+                        c_current = false;
+                    }
+                    if ((c_current == true) & (c_prev == false))
+                    {
+                        ray = !ray;
+                    }
+                    if (ray)
+                    {
+                        test_img.at<uchar>(row, col) = 255;
+                        val = cv_ptr_->image.at<uchar>(row, col);
+                        pt2d.x = row;
+                        pt2d.y = col;
+                        pt3d_cv = cam_model.projectPixelTo3dRay(pt2d);
+                        pt3d_cv = scalarMultiply(pt3d_cv, val);
+                        pt3d_pcl.x = pt3d_cv.x;
+                        pt3d_pcl.y = pt3d_cv.y;
+                        pt3d_pcl.z = pt3d_cv.z;
+                        cloud_cam_xyz->points.push_back(pt3d_pcl);
+                        cloud_cam_xyz->width = cloud_cam_xyz->points.size();
+                        pcl::toPCLPointCloud2(*cloud_cam_xyz, *cloud_cam_pcl2);
+                        pcl_conversions::fromPCL(*cloud_cam_pcl2, cloud_ros);
+                    }
+                    if (c_current == true)
+                    {
+                        c_prev = true;
+                    }
+                    else
+                    {
+                        c_prev = false;
+                    }
+                }
+            }
+            auto test_img_ros = cv_bridge::CvImage(std_msgs::msg::Header(), "mono8", test_img).toImageMsg();
+            img_pub_->publish(*test_img_ros);
+            cloud_ros.header.frame_id = "camera_depth_optical_frame";
+            pc_pub_->publish(cloud_ros);
+        }
+        catch (cv_bridge::Exception& e)
+        {
+            RCLCPP_WARN(rclcpp::get_logger("image_processing"), "cv_bridge : %s", e.what());
+        }
+        return BT::NodeStatus::RUNNING;
+    }
+
+    void onHalted()
+    {
+        RCLCPP_INFO(LOGGER, "FindObj Halted");
     }
     
     private:
         cv_bridge::CvImagePtr cv_ptr_;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr img_pub_;
         rclcpp::Subscription<ur_interfaces::msg::Segimgcombo>::SharedPtr combo_sub_;
+        rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc_pub_;
 
 };
 
