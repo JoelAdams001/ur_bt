@@ -66,57 +66,56 @@ class GotoHomePosition : public BT::SyncActionNode
 
     BT::NodeStatus tick() override
     {
-           extern const std::string PLANNING_GROUP;
+        extern const std::string PLANNING_GROUP;
 
         auto node = Ros::instance()->node();
         
-        // //Setup moveit objects
-        // moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
-        // moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-        // const moveit::core::JointModelGroup* joint_model_group =
-        // move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+        //Setup moveit objects
+        moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
+        moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+        const moveit::core::JointModelGroup* joint_model_group =
+        move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 
-        // //Rviz vizualization
-        // moveit_visual_tools::MoveItVisualTools visual_tools(node, "base_link", "ur_behavior_tree",
-        //                                                     move_group.getRobotModel());
-        // visual_tools.deleteAllMarkers();
-        // visual_tools.loadRemoteControl();
+        //Rviz vizualization
+        moveit_visual_tools::MoveItVisualTools visual_tools(node, "base_link", "ur_behavior_tree",
+                                                            move_group.getRobotModel());
+        visual_tools.deleteAllMarkers();
+        visual_tools.loadRemoteControl();
 
-        // Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
-        // text_pose.translation().z() = 1.75;
-        // visual_tools.publishText(text_pose, "ur_behavior_tree", rvt::WHITE, rvt::XLARGE);
-        // visual_tools.trigger();
+        Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
+        text_pose.translation().z() = 1.75;
+        visual_tools.publishText(text_pose, "ur_behavior_tree", rvt::WHITE, rvt::XLARGE);
+        visual_tools.trigger();
 
-        // moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-        // std::vector<double> joint_group_positions;
-        // make_joint_array(joint_group_positions, 1.397, 0.743, -0.710, -5.071, -1.675, 0.100, false /*Passing rad*/);
-        // move_group.setJointValueTarget(joint_group_positions);
-        // move_group.plan(my_plan);
-        // visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);
+        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+        std::vector<double> joint_group_positions;
+        make_joint_array(joint_group_positions, 1.397, 0.743, -0.710, -5.071, -1.675, 0.100, false /*Passing rad*/);
+        move_group.setJointValueTarget(joint_group_positions);
+        move_group.plan(my_plan);
+        visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);
 
-        // //Move robot
-        // move_group.move();
+        //Move robot
+        move_group.move();
 
         //Make plan
-        // move_group.setGoalPositionTolerance(0.02);
-        // move_group.setGoalOrientationTolerance(0.04);
-        // geometry_msgs::msg::Pose target_pose1;
-        // //target_pose1.header.frame_id = "base_link";
-        // target_pose1.orientation.w = 0.1;
-        // target_pose1.position.x = -0.056;
-        // target_pose1.position.y = 0.294;
-        // target_pose1.position.z = 0.194;
-        // move_group.setPoseTarget(target_pose1);
+        move_group.setGoalPositionTolerance(0.02);
+        move_group.setGoalOrientationTolerance(0.04);
+        geometry_msgs::msg::Pose target_pose1;
+        //target_pose1.header.frame_id = "base_link";
+        target_pose1.orientation.w = 0.1;
+        target_pose1.position.x = -0.056;
+        target_pose1.position.y = 0.294;
+        target_pose1.position.z = 0.194;
+        move_group.setPoseTarget(target_pose1);
 
-        // moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-        // bool success = (move_group.plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
-        // RCLCPP_INFO(LOGGER, "Visualizing plan 1 (pose goal) %s", success ? "" : "FAILED");
+        bool success = (move_group.plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
+        RCLCPP_INFO(LOGGER, "Visualizing plan 1 (pose goal) %s", success ? "" : "FAILED");
 
         //Vizualize plan
-        //visual_tools.publishAxisLabeled(target_pose1, "pose1");
-        //visual_tools.publishText(text_pose, "Pose_Goal", rvt::WHITE, rvt::XLARGE);
-        //visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);
-        //visual_tools.trigger();
+        visual_tools.publishAxisLabeled(target_pose1, "pose1");
+        visual_tools.publishText(text_pose, "Pose_Goal", rvt::WHITE, rvt::XLARGE);
+        visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);
+        visual_tools.trigger();
 
         std::cout << "Magic!" << std::endl;
         return BT::NodeStatus::SUCCESS;
